@@ -327,4 +327,5 @@ def create_recipient_view(access_token, account_id, envelope_id, signer_name, si
         return None
    
 if __name__ == '__main__':
-    app.run(port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)

@@ -36,7 +36,7 @@ AUTH_URL = "https://account-d.docusign.com/oauth/auth"
 TOKEN_URL = "https://account-d.docusign.com/oauth/token"
 code_verifier = base64.urlsafe_b64encode(os.urandom(64)).rstrip(b"=").decode("utf-8")
 code_challenge = base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode("utf-8")).digest()).rstrip(b"=").decode("utf-8")
-ORIGIN = "http://localhost:5000"
+ORIGIN = "https://contract-analyzer-backend-etzi.onrender.com"
 DOCUSIGN_API_URL = "https://demo.docusign.net/restapi"  # Use "https://www.docusign.com/restapi" for production
 ENVELOPE_API_URL = f"{DOCUSIGN_API_URL}/v2.1/accounts/{ACCOUNT_ID}/envelopes"
 
@@ -238,7 +238,7 @@ def callback():
         )
 
         if signing_url:
-            redirect_url = f"http://localhost:4000/sign?signing_url={urllib.parse.quote(signing_url)}"
+            redirect_url = f"https://contract-analyzer-uw74.onrender.com/sign?signing_url={urllib.parse.quote(signing_url)}"
             return redirect(redirect_url)
         else:
             return "Failed to create recipient view", 400

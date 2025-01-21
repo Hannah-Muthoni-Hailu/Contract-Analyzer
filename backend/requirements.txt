@@ -4,9 +4,5 @@ flask_cors
 huggingface_hub
 nltk
 pdfplumber==0.11.5
-json
 gradio_client
-dotenv
-base64
-hashlib
-urllib
+python-dotenv

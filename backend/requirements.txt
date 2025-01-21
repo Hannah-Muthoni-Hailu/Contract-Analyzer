@@ -1,0 +1,13 @@
+flask
+requests
+flask_cors
+huggingface_hub
+nltk
+pdfplumber
+os
+json
+gradio_client
+dotenv
+base64
+hashlib
+urllib

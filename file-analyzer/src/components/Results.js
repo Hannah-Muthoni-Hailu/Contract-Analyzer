@@ -82,7 +82,7 @@ const ResultPage = () => {
 
         // Send data to the backend (app.py)
         try {
-            const response = await axios.post('http://localhost:5000/submit-form', { answers: submissionData });
+            const response = await axios.post('https://contract-analyzer-backend-etzi.onrender.com/submit-form', { answers: submissionData });
             setShowHelp(false);
             setResponse(response.data);
         } catch (error) {
@@ -142,7 +142,7 @@ const ResultPage = () => {
 
     // Sign the document
     const signDocument = async () => {
-        window.location.href = 'http://localhost:5000/create-signing-url';
+        window.location.href = 'https://contract-analyzer-backend-etzi.onrender.com/create-signing-url';
     }
 
     // Goodbye

@@ -3,7 +3,7 @@ requests
 flask_cors
 huggingface_hub
 nltk
-pdfplumber
+pdfplumber==0.11.5
 os
 json
 gradio_client

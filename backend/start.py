@@ -1,4 +1,5 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, redirect
+import requests
 from flask_cors import CORS
 from huggingface_hub import InferenceClient
 import nltk
@@ -7,8 +8,10 @@ nltk.download('punkt_tab')
 import os
 import json
 from gradio_client import Client
-import webbrowser
 from dotenv import load_dotenv
+import base64
+import hashlib
+import urllib.parse
 load_dotenv()
 
 app = Flask(__name__)
@@ -17,10 +20,26 @@ CORS(app)  # Allow React frontend to communicate with Flask backend
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+FILE_PATH = None
+FILE_NAME = None
+SIGNER_NAME = None
+SIGNER_EMAIL = None
 
 client_token = os.getenv("INFERENCE_CLIENT_TOKEN")
-
 client = InferenceClient(token=client_token)
+
+CLIENT_ID = os.getenv("DOCUSIGN_CLIENT_ID")
+REDIRECT_URI = os.getenv("DOCUSIGN_REDIRECT_URI")
+END_URI = os.getenv("PROCESS_COMPLETE_URI")
+ACCOUNT_ID = os.getenv("DOCUSIGN_ACCOUNT_ID")
+AUTH_URL = "https://account-d.docusign.com/oauth/auth"
+TOKEN_URL = "https://account-d.docusign.com/oauth/token"
+code_verifier = base64.urlsafe_b64encode(os.urandom(64)).rstrip(b"=").decode("utf-8")
+code_challenge = base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode("utf-8")).digest()).rstrip(b"=").decode("utf-8")
+ORIGIN = "http://localhost:5000"
+DOCUSIGN_API_URL = "https://demo.docusign.net/restapi"  # Use "https://www.docusign.com/restapi" for production
+ENVELOPE_API_URL = f"{DOCUSIGN_API_URL}/v2.1/accounts/{ACCOUNT_ID}/envelopes"
+
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -34,6 +53,15 @@ def upload_file():
 
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], "submitted_file.pdf")
     file.save(filepath)
+
+    global FILE_PATH, FILE_NAME, SIGNER_NAME, SIGNER_EMAIL
+    FILE_PATH = filepath
+    FILE_NAME = file.filename
+    SIGNER_NAME = request.form.get('signer_name')
+    SIGNER_EMAIL = request.form.get('signer_email')
+
+    if not SIGNER_NAME or not SIGNER_EMAIL:
+        return jsonify({"error": "Signer name and email are required"}), 400
     
     text = ''
     with pdfplumber.open(filepath) as pdf:
@@ -157,10 +185,146 @@ def long_summary(text):
     
     return result
 
-@app.route('/create-signing-url', methods=['POST'])
+@app.route('/create-signing-url')
 def create_signing_url():
-    webbrowser.open("http://localhost:3000")
-    return "Done"
+    auth_endpoint = (f"{AUTH_URL}?response_type=code&scope=signature&client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&code_challenge={code_challenge}&code_challenge_method=S256")
+    return redirect(auth_endpoint)
 
+@app.route("/callback")
+def callback():
+    code = request.args.get("code")
+
+    if not code:
+        return "Authorization code not found", 400
+
+    # Exchange authorization code for an access token
+    token_response = requests.post(
+        TOKEN_URL,
+        headers={"Origin": ORIGIN},  # Include Origin header if required
+        data={
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": REDIRECT_URI,
+            "code_verifier": code_verifier,
+            "client_id": CLIENT_ID,
+        },
+    )
+
+    if token_response.status_code == 200:
+        token_data = token_response.json()
+        access_token = token_data.get('access_token')
+        global FILE_PATH, FILE_NAME, SIGNER_NAME, SIGNER_EMAIL
+
+        # Create the envelope
+        envelope_id = create_envelope(
+            access_token=access_token,
+            file_path=FILE_PATH,
+            file_name=FILE_NAME,
+            signer_name=SIGNER_NAME,
+            signer_email=SIGNER_EMAIL,
+        )
+
+        if not envelope_id:
+            return "Failed to create envelope", 400
+
+        # Create the recipient view (signing URL)
+        signing_url = create_recipient_view(
+            access_token=access_token,
+            account_id=ACCOUNT_ID,
+            envelope_id=envelope_id,
+            signer_name=SIGNER_NAME,
+            signer_email=SIGNER_EMAIL,
+            return_url=END_URI,
+        )
+
+        if signing_url:
+            redirect_url = f"http://localhost:4000/sign?signing_url={urllib.parse.quote(signing_url)}"
+            return redirect(redirect_url)
+        else:
+            return "Failed to create recipient view", 400
+    else:
+        return f"Failed to get access token: {token_response.text}", 400
+
+def create_envelope(access_token, file_path, file_name, signer_name, signer_email):
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+        'Content-Type': 'application/json',
+    }
+
+    # Prepare the document
+    with open(file_path, 'rb') as document:
+        file_data = document.read()
+
+    encoded_file = base64.b64encode(file_data).decode('utf-8')
+
+    # Define envelope structure
+    envelope_data = {
+        "status": "sent",
+        "emailSubject": "Please sign this document",
+        "documents": [
+            {
+                "documentBase64": encoded_file,
+                "name": file_name,
+                "fileExtension": "pdf",
+                "documentId": "1",
+            }
+        ],
+        "recipients": {
+            "signers": [
+                {
+                    "email": signer_email,
+                    "name": signer_name,
+                    "recipientId": "1",
+                    "clientUserId": "12345",
+                    "routingOrder": "1",
+                    "tabs": {
+                        "signHereTabs": [
+                            {
+                                "xPosition": "100",
+                                "yPosition": "100",
+                                "documentId": "1",
+                                "pageNumber": "1",
+                            }
+                        ]
+                    },
+                }
+            ]
+        },
+    }
+
+    response = requests.post(
+        ENVELOPE_API_URL, headers=headers, json=envelope_data
+    )
+
+    if response.status_code == 201:
+        return response.json().get("envelopeId")
+    else:
+        print(f"Failed to create envelope: {response.text}")
+        return None
+
+def create_recipient_view(access_token, account_id, envelope_id, signer_name, signer_email, return_url):
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json",
+    }
+
+    url = f"https://demo.docusign.net/restapi/v2.1/accounts/{account_id}/envelopes/{envelope_id}/views/recipient"
+
+    data = {
+        "authenticationMethod": "none",
+        "email": signer_email,
+        "userName": signer_name,
+        "clientUserId": "12345",
+        "returnUrl": return_url,
+    }
+
+    response = requests.post(url, headers=headers, json=data)
+
+    if response.status_code == 201:
+        return response.json().get("url")
+    else:
+        print(f"Failed to create recipient view: {response.text}")
+        return None
+   
 if __name__ == '__main__':
     app.run(port=5000)

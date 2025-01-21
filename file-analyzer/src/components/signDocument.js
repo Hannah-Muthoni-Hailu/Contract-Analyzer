@@ -1,47 +1,32 @@
-import React, { useState } from 'react';
-import axios from 'axios';
+import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from 'react-router-dom';
 
+
 const SignDocument = () => {
-    const [signingUrl, setSigningUrl] = useState(null);
-    const [userEmail, setUserEmail] = useState('');
-    const [userName, setUserName] = useState('');
     const location = useLocation();
-    const result = location.state?.result || 'No result available.';
+    const [signingUrl, setSigningUrl] = useState('');
+    
+    useEffect(() => {
+        const queryParams = new URLSearchParams(location.search);
+        const url = queryParams.get("signing_url");
 
-
-    const handleSignDocument = async () => {
-        try {
-            const response = await axios.post('http://localhost:5000/create-signing-url', {
-                email: userEmail,
-                name: userName,
-                documentPath: result['filepath']
-            });
-            setSigningUrl(response.data.signingUrl);
-        } catch (error) {
-            console.error("Error creating signing URL:", error);
+        if (url) {
+            setSigningUrl(decodeURIComponent(url));  // Decode the URL as it was encoded in the backend
         }
-    };
+    }, [location.state]);
 
     return (
         <div>
-            <div>
-                <div className="mb-3">
-                    <label htmlFor="userName" className="form-label">Your Name</label>
-                    <input type="text" id="userName" value={userName} onChange={(e) => setUserName(e.target.value)} className="form-control" required/>
-                </div>
-
-                <div className="mb-3">
-                    <label htmlFor="userEmail" className="form-label">Your Email</label>
-                    <input type="email" id="userEmail" value={userEmail} onChange={(e) => setUserEmail(e.target.value)} className="form-control" required/>
-                </div>
-            </div>
-            <button onClick={handleSignDocument}>Sign Document</button>
-            {signingUrl && (
-                <div>
-                    <p>Click the link below to sign the document:</p>
-                    <a href={signingUrl} target="_blank" rel="noopener noreferrer">Sign Document</a>
-                </div>
+            <h1>Sign Document</h1>
+            {signingUrl ? (
+                <iframe
+                    src={signingUrl}
+                    width="100%"
+                    height="600px"
+                    title="DocuSign Signing"
+                />
+            ) : (
+                <p>Loading signing interface...</p>
             )}
         </div>
     );

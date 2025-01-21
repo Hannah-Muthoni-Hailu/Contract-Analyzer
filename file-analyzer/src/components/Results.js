@@ -9,32 +9,37 @@ const ResultPage = () => {
     const result = location.state?.result || 'No result available.';
     
     const [showHelp, setShowHelp] = useState(true);
+    const [showSummary, setShowSummary] = useState(true);
     const [summary, setSummary] = useState('');
     const [nohelp, setNoHelp] = useState('');
     const [help, setHelp] = useState('');
-    const [email, setEmail] = useState('');
     const [formData, setFormData] = useState({});
     const [formErrors, setFormErrors] = useState({});
     const [response, setResponse] = useState(null);
+    const [analyse, setAnalyse] = useState(true);
 
     const helpFormRef = useRef(null);
 
     const displaySummary = (type) => {
         if (type === 'long') {
+            setAnalyse(false)
             setSummary(result['long-summary']);  // Display long summary
         } else {
+            setAnalyse(false)
             setSummary(result['short-summary']); // Display short summary
         }
     }
 
     const AIhelp = (decision) => {
         if (decision === "yes"){
+            setShowSummary(false);
             setHelp("Please answer these questions to better personalize the decision made by the AI model");
             if (helpFormRef.current) {
                 helpFormRef.current.scrollIntoView({ behavior: 'smooth' });
             }
         }
         else {
+            setShowSummary(false);
             setNoHelp("Please answer these questions to better personalize the decision made by the AI model")
         }
     }
@@ -137,8 +142,7 @@ const ResultPage = () => {
 
     // Sign the document
     const signDocument = async () => {
-        const response = await axios.post('http://localhost:5000/create-signing-url', formData);
-        console.log(response)
+        window.location.href = 'http://localhost:5000/create-signing-url';
     }
 
     // Goodbye
@@ -153,12 +157,15 @@ const ResultPage = () => {
     return (
         <div className="container mt-5 d-flex flex-column align-items-center p-2 border border-primary-subtle rounded-4 bg-body-secondary">
             <h1 className='m-3 text-primary'>Analysis complete!!</h1>
-            <div className='d-flex flex-row justify-content-evenly w-50 p-3'>
-                <Button onClick={() => displaySummary('long')}>Long Form Summary</Button>
-                <Button onClick={() => displaySummary('short')}>Short Form Summary</Button>
-            </div>
+            {analyse && (
+                <div className='d-flex flex-row justify-content-evenly w-50 p-3'>
+                    <Button onClick={() => displaySummary('long')}>Long Form Summary</Button>
+                    <Button onClick={() => displaySummary('short')}>Short Form Summary</Button>
+                </div>
+            )}
+            
 
-            {summary && (
+            {summary && showSummary && (
                 <div className="mt-4 p-3 w-75 border rounded bg-light d-flex flex-column align-items-center">
                     <h4>Summary:</h4>
                     <p>{summary}</p>

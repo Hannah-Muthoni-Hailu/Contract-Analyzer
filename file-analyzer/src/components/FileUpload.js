@@ -6,6 +6,8 @@ import Button from 'react-bootstrap/Button';
 
 const FileUpload = () => {
     const [file, setFile] = useState(null);
+    const [signerName, setSignerName] = useState('');
+    const [signerEmail, setSignerEmail] = useState('');
     const [result, setResult] = useState(null);
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
@@ -14,8 +16,16 @@ const FileUpload = () => {
         setFile(e.target.files[0]);
     };
 
+    const handleSignerNameChange = (e) => {
+        setSignerName(e.target.value);
+    };
+
+    const handleSignerEmailChange = (e) => {
+        setSignerEmail(e.target.value);
+    };
+
     const handleUpload = async () => {
-        if (!file) return;
+        if (!file || !signerName || !signerEmail) return;
         
         const allowedTypes = ['application/pdf'];
         if (!allowedTypes.includes(file.type)) {
@@ -25,6 +35,8 @@ const FileUpload = () => {
 
         const formData = new FormData();
         formData.append('file', file);
+        formData.append('signer_name', signerName);
+        formData.append('signer_email', signerEmail);
         setLoading(true);
 
         try {
@@ -42,16 +54,29 @@ const FileUpload = () => {
             <h2 className="fs-4 text-center m-4">Upload a File</h2>
             <Form className='d-flex flex-column align-items-center m-4'>
                 <Form.Group className='m-3'>
+                    <Form.Control
+                        type="text"
+                        placeholder="Signer Name"
+                        value={signerName}
+                        onChange={handleSignerNameChange}
+                        required
+                    />
+                </Form.Group>
+                <Form.Group className='m-3'>
+                    <Form.Control
+                        type="email"
+                        placeholder="Signer Email"
+                        value={signerEmail}
+                        onChange={handleSignerEmailChange}
+                        required
+                    />
+                </Form.Group>
+
+                <Form.Group className='m-3'>
                     <Form.Control type="file" size="lg" onChange={handleFileChange} />
                 </Form.Group>
                 <Button className='text-center' type="submit" onClick={handleUpload} disabled={!file || loading}>{loading ? 'Uploading...' : 'Upload'}</Button>
             </Form>
-            {result && (
-                <div>
-                    <h3>Analysis Result:</h3>
-                    <pre>{JSON.stringify(result, null, 2)}</pre>
-                </div>
-            )}
         </div>
     );
 };

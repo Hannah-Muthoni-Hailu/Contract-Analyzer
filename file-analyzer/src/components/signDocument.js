@@ -13,7 +13,7 @@ const SignDocument = () => {
         if (url) {
             setSigningUrl(decodeURIComponent(url));  // Decode the URL as it was encoded in the backend
         }
-    }, [location.state]);
+    }, [location.search]);
 
     return (
         <div>

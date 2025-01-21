@@ -40,7 +40,7 @@ const FileUpload = () => {
         setLoading(true);
 
         try {
-            const response = await axios.post('http://localhost:5000/upload', formData);
+            const response = await axios.post('https://contract-analyzer-backend-etzi.onrender.com/upload', formData);
             navigate('/result', { state: { result: response.data } });
         } catch (error) {
             console.error('Error uploading file:', error);

@@ -239,7 +239,7 @@ def callback():
 
         if signing_url:
             redirect_url = f"https://contract-analyzer-uw74.onrender.com/sign?signing_url={urllib.parse.quote(signing_url)}"
-            return redirect(redirect_url)
+            return redirect(signing_url)
         else:
             return "Failed to create recipient view", 400
     else:
